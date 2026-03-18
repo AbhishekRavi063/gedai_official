@@ -370,7 +370,6 @@ class Gedai:
                 f"Large recording detected ({n_epochs_total} segments). "
                 f"Sub-sampling {max_fit_epochs} segments for memory-efficient fitting."
             )
-            import numpy as np
             indices = np.linspace(0, n_epochs_total - 1, max_fit_epochs).astype(int)
             epochs = epochs[indices]
 
