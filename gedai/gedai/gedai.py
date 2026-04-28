@@ -394,8 +394,9 @@ class Gedai:
             padded = raw_data
 
         # MODWT decomposition
-        wpt = modwt(padded.T, self.wavelet_type, level, n_jobs=-1)  # (n_bands, pad_to, n_ch)
-        mra = modwtmra(wpt, self.wavelet_type, n_jobs=-1)            # (n_bands, pad_to, n_ch)
+        # Use single-threaded wavelet ops here to avoid loky/semaphore issues on constrained systems.
+        wpt = modwt(padded.T, self.wavelet_type, level, n_jobs=1)  # (n_bands, pad_to, n_ch)
+        mra = modwtmra(wpt, self.wavelet_type, n_jobs=1)            # (n_bands, pad_to, n_ch)
         del wpt, padded
 
         # Identify wavelet bands to remove based on cutoff
@@ -1027,8 +1028,8 @@ class Gedai:
         else:
             raw_data_padded = raw_data
 
-        wpt = modwt(raw_data_padded.T, self.wavelet_type, level, n_jobs=-1)   # (n_bands, pad_to, n_channels)
-        mra = modwtmra(wpt, self.wavelet_type, n_jobs=-1)                      # (n_bands, pad_to, n_channels)
+        wpt = modwt(raw_data_padded.T, self.wavelet_type, level, n_jobs=1)   # (n_bands, pad_to, n_channels)
+        mra = modwtmra(wpt, self.wavelet_type, n_jobs=1)                      # (n_bands, pad_to, n_channels)
         mra = mra[:, :n_times, :]   # trim back to original length
         del wpt, raw_data, raw_data_padded  # free memory early
 
@@ -1069,11 +1070,13 @@ class Gedai:
                 wavelets_fits.append({**base_fit, **_pass_through})
                 continue
 
-            # --- Skip: approximation band (always zeroed in spectral output) ---
-            if fmin == 0:
+            # --- Approximation band handling ---
+            # For low-frequency EEG paradigms (e.g. MRCP), the approximation band
+            # can contain the signal of interest and must not be unconditionally zeroed.
+            if fmin == 0 and signal_type != 'eeg':
                 print(
                     f"  Band {w} ({fmin:.2f}–{fmax:.2f} Hz): zeroed "
-                    f"(approximation band — always excluded from spectral output).",
+                    f"(approximation band excluded for non-EEG spectral output).",
                     flush=True,
                 )
                 wavelets_fits.append({**base_fit, **_pass_through})
@@ -1797,11 +1800,13 @@ class Gedai:
                 mra[w] = 0.0  # free working memory in-place
                 continue
 
-            # --- Skip: approximation band (always zeroed in spectral output) ---
-            if fmin == 0:
+            # --- Approximation band handling ---
+            # For low-frequency EEG paradigms (e.g. MRCP), the approximation band
+            # can contain the signal of interest and must not be unconditionally zeroed.
+            if fmin == 0 and signal_type != 'eeg':
                 print(
                     f"  Band {w} ({fmin:.2f}-{fmax:.2f} Hz): zeroed "
-                    f"(approximation band — always excluded from spectral output).",
+                    f"(approximation band excluded for non-EEG spectral output).",
                     flush=True,
                 )
                 wavelets_fits.append({**base_fit, **_pass_through})
